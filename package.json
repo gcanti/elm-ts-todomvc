@@ -1,0 +1,45 @@
+{
+  "name": "elm-ts-todomvc",
+  "version": "0.0.1",
+  "description": "elm-ts-todomvc description",
+  "files": ["lib"],
+  "main": "lib/index.js",
+  "scripts": {
+    "lint": "tslint src/**/*.ts",
+    "start": "webpack --watch --progress --config webpack.config.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gcanti/elm-ts-todomvc.git"
+  },
+  "author": "Giulio Canti <giulio.canti@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/gcanti/elm-ts-todomvc/issues"
+  },
+  "homepage": "https://github.com/gcanti/elm-ts-todomvc",
+  "dependencies": {
+    "classnames": "^2.2.5",
+    "elm-ts": "github:gcanti/elm-ts#next",
+    "fp-ts": "^0.6.4",
+    "fp-ts-routing": "^0.1.0",
+    "io-ts": "^0.9.0",
+    "io-ts-types": "^0.2.2",
+    "monocle-ts": "^0.5.2",
+    "newtype-ts": "^0.1.0",
+    "todomvc-app-css": "2.1.0"
+  },
+  "devDependencies": {
+    "@types/classnames": "^2.2.3",
+    "@types/node": "8.0.19",
+    "@types/react": "16.0.27",
+    "@types/react-dom": "16.0.3",
+    "awesome-typescript-loader": "3.4.1",
+    "tslint": "4.4.2",
+    "tslint-config-standard": "4.0.0",
+    "typescript": "2.6.2",
+    "webpack": "3.10.0"
+  },
+  "tags": [],
+  "keywords": []
+}
