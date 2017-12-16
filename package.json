@@ -6,7 +6,8 @@
   "main": "lib/index.js",
   "scripts": {
     "lint": "tslint src/**/*.ts",
-    "start": "webpack --watch --progress --config webpack.config.js"
+    "start": "webpack --watch --progress --config webpack.config.js",
+    "stats": "webpack --json --config webpack.config.js > stats.json"
   },
   "repository": {
     "type": "git",
@@ -22,7 +23,7 @@
     "classnames": "^2.2.5",
     "elm-ts": "github:gcanti/elm-ts#next",
     "fp-ts": "^0.6.4",
-    "fp-ts-routing": "^0.1.0",
+    "fp-ts-routing": "^0.2.0",
     "io-ts": "^0.9.0",
     "io-ts-types": "^0.2.2",
     "monocle-ts": "^0.5.2",
