@@ -311,10 +311,12 @@ class TodoComponent extends React.PureComponent<TodoComponentProps> {
         onCancel()
       }
     })
-    const completedClassName = todo.completed ? 'completed ' : undefined
-    const editingClassName = editable.map(() => ' editing').toUndefined()
+    const className = {
+      completed: todo.completed,
+      editing: editable.isSome()
+    }
     return (
-      <li className={classnames([completedClassName, editingClassName])}>
+      <li className={classnames(className)}>
         <div className="view">
           <input className="toggle" type="checkbox" checked={todo.completed} onChange={onToggleTodo} />
           <label onDoubleClick={onStartEdit}>{todo.text}</label>
