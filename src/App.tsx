@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { findDOMNode } from 'react-dom'
 import { cmd } from 'elm-ts/lib'
-import { Html } from 'elm-ts/lib/React'
+import { Html, Reader } from 'elm-ts/lib/React'
 import { Location } from 'elm-ts/lib/Navigation'
 import {
   Model,
@@ -477,7 +477,7 @@ const getTodosFilter = (filter: Filter): Predicate<Todo> => {
 }
 
 export function view(model: Model): Html<Msg> {
-  return dispatch => {
+  return new Reader(dispatch => {
     const onFinish = () => dispatch(AddTodo.value)
     const onChange = (text: string) => dispatch(EnterTodo.create(text))
     const onRemoveTodo = (id: Id) => dispatch(RemoveTodo.create(id))
@@ -501,5 +501,5 @@ export function view(model: Model): Html<Msg> {
         onClearCompleted={onClearCompleted}
       />
     )
-  }
+  })
 }
