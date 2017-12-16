@@ -3,34 +3,10 @@ import { findDOMNode } from 'react-dom'
 import { cmd } from 'elm-ts/lib'
 import { Html, Reader } from 'elm-ts/lib/React'
 import { Location } from 'elm-ts/lib/Navigation'
-import {
-  Model,
-  Msg,
-  All,
-  Active,
-  Completed,
-  NotFound,
-  Todo,
-  NoOp,
-  AddTodo,
-  EnterTodo,
-  RemoveTodo,
-  Navigate,
-  Route,
-  ToggleTodo,
-  LoadTodos,
-  Todos,
-  UpdateTodo,
-  EditTodo,
-  Cancel,
-  ToggleAll,
-  ClearCompleted,
-  Id,
-  idIso
-} from './types'
+import * as t from './types'
 import { Lens } from 'monocle-ts'
 import { Predicate } from 'fp-ts/lib/function'
-import { lit, end, parse, Route as Path, Match } from 'fp-ts-routing'
+import { lit, end, parse, Route, Match } from 'fp-ts-routing'
 import { Option, none, some } from 'fp-ts/lib/Option'
 import { tryCatch } from 'fp-ts/lib/Either'
 import { Cmd } from 'elm-ts/lib/Cmd'
@@ -50,14 +26,14 @@ const active = lit('active').then(end)
 const completed = lit('completed').then(end)
 
 const router = active.parser
-  .map(() => Active.value)
-  .alt(completed.parser.map(() => Completed.value))
-  .alt(all.parser.map(() => All.value))
+  .map(() => t.Active.value)
+  .alt(completed.parser.map(() => t.Completed.value))
+  .alt(all.parser.map(() => t.All.value))
 
-const parseRoute = (pathname: string): Route => parse(router, Path.parse(pathname), NotFound.value)
+const parseRoute = (pathname: string): t.Route => parse(router, Route.parse(pathname), t.NotFound.value)
 
 function formatRoute<A>(match: Match<A>): (a: A) => string {
-  return a => match.formatter.run(Path.empty, a).toString()
+  return a => match.formatter.run(Route.empty, a).toString()
 }
 
 const allHref = formatRoute(all)({})
@@ -72,30 +48,30 @@ const completedHref = formatRoute(completed)({})
 
 const NAMESPACE = 'reason-react-todos'
 
-const parseTodos = (s: string): Option<Array<Todo>> => {
+const parseTodos = (s: string): Option<Array<t.Todo>> => {
   return tryCatch(() => JSON.parse(s))
-    .chain(v => validate(v, Todos).mapLeft(() => new Error()))
+    .chain(v => validate(v, t.Todos).mapLeft(() => new Error()))
     .toOption()
 }
 
-const loadTodos: Cmd<Msg> = perform(a => LoadTodos.create(a.chain(parseTodos).getOrElseValue([])), load(NAMESPACE))
+const loadTodos: Cmd<t.Msg> = perform(a => t.LoadTodos.create(a.chain(parseTodos).getOrElseValue([])), load(NAMESPACE))
 
 const saveToNamespace = save(NAMESPACE)
 
-const saveTodos = (todos: Array<Todo>): Cmd<Msg> => {
-  return perform(a => NoOp.value, saveToNamespace(JSON.stringify(todos)))
+const saveTodos = (todos: Array<t.Todo>): Cmd<t.Msg> => {
+  return perform(a => t.NoOp.value, saveToNamespace(JSON.stringify(todos)))
 }
 
 //
 // Init
 //
 
-export const locationToMessage = (location: Location): Msg => {
+export const locationToMessage = (location: Location): t.Msg => {
   const route = parseRoute(location.pathname)
-  return Navigate.create(route)
+  return t.Navigate.create(route)
 }
 
-export const init = (location: Location): [Model, cmd.Cmd<Msg>] => {
+export const init = (location: Location): [t.Model, cmd.Cmd<t.Msg>] => {
   const route = parseRoute(location.pathname)
   return [
     {
@@ -112,52 +88,52 @@ export const init = (location: Location): [Model, cmd.Cmd<Msg>] => {
 // Update helpers
 //
 
-const routeLens = Lens.fromProp<Model, 'route'>('route')
+const routeLens = Lens.fromProp<t.Model, 'route'>('route')
 
-const todosLens = Lens.fromProp<Model, 'todos'>('todos')
+const todosLens = Lens.fromProp<t.Model, 'todos'>('todos')
 
-const addingLens = Lens.fromProp<Model, 'adding'>('adding')
+const addingLens = Lens.fromProp<t.Model, 'adding'>('adding')
 
-const textLens = Lens.fromProp<Todo, 'text'>('text')
+const textLens = Lens.fromProp<t.Todo, 'text'>('text')
 
-const completedLens = Lens.fromProp<Todo, 'completed'>('completed')
+const completedLens = Lens.fromProp<t.Todo, 'completed'>('completed')
 
-const addTodoLens = new Lens<Model, [string, Array<Todo>]>(
+const addTodoLens = new Lens<t.Model, [string, Array<t.Todo>]>(
   s => [addingLens.get(s), todosLens.get(s)],
   a => s => ({ ...s, adding: a[0], todos: a[1] })
 )
 
-const editingLens = Lens.fromProp<Model, 'editing'>('editing')
+const editingLens = Lens.fromProp<t.Model, 'editing'>('editing')
 
-const makeTodo = (text: string): Todo => ({
-  id: idIso.wrap(String(new Date().getTime())),
+const makeTodo = (text: string): t.Todo => ({
+  id: t.idIso.wrap(String(new Date().getTime())),
   text,
   completed: false
 })
 
-const addTodo = (model: Model): Model =>
+const addTodo = (model: t.Model): t.Model =>
   addTodoLens.set(['', [...todosLens.get(model), makeTodo(addingLens.get(model))]])(model)
 
-const removeTodo = (id: Id, model: Model): Model =>
+const removeTodo = (id: t.Id, model: t.Model): t.Model =>
   todosLens.modify(todos => todos.filter(todo => todo.id !== id))(model)
 
-const toggleTodo = (id: Id, model: Model): Model =>
+const toggleTodo = (id: t.Id, model: t.Model): t.Model =>
   todosLens.modify(todos => todos.map(todo => (todo.id !== id ? todo : completedLens.set(!todo.completed)(todo))))(
     model
   )
 
-const updateTodo = (id: Id, text: string, model: Model): Model =>
+const updateTodo = (id: t.Id, text: string, model: t.Model): t.Model =>
   todosLens.modify(todos => todos.map(todo => (todo.id !== id ? todo : textLens.set(text)(todo))))(model)
 
-const withoutEffect = (model: Model): [Model, cmd.Cmd<Msg>] => [model, cmd.none]
+const withoutEffect = (model: t.Model): [t.Model, cmd.Cmd<t.Msg>] => [model, cmd.none]
 
-const withSaveEffect = (model: Model): [Model, cmd.Cmd<Msg>] => [model, saveTodos(todosLens.get(model))]
+const withSaveEffect = (model: t.Model): [t.Model, cmd.Cmd<t.Msg>] => [model, saveTodos(todosLens.get(model))]
 
 //
 // Update
 //
 
-export const update = (msg: Msg, model: Model): [Model, cmd.Cmd<Msg>] => {
+export const update = (msg: t.Msg, model: t.Model): [t.Model, cmd.Cmd<t.Msg>] => {
   switch (msg._tag) {
     case 'NoOp':
       return withoutEffect(model)
@@ -280,7 +256,7 @@ const FooterComponent = (props: FooterComponentProps) => {
 }
 
 interface TodoComponentProps {
-  todo: Todo
+  todo: t.Todo
   onRemoveTodo: () => void
   onToggleTodo: () => void
   onStartEdit: () => void
@@ -335,12 +311,12 @@ class TodoComponent extends React.PureComponent<TodoComponentProps> {
 }
 
 interface TodosComponentProps {
-  todos: Array<Todo>
+  todos: Array<t.Todo>
   allCompleted: boolean
-  onRemoveTodo: (id: Id) => void
-  onToggleTodo: (id: Id) => void
-  onStartEdit: (id: Id) => () => void
-  onEdit: (id: Id) => Option<(text: string) => void>
+  onRemoveTodo: (id: t.Id) => void
+  onToggleTodo: (id: t.Id) => void
+  onStartEdit: (id: t.Id) => () => void
+  onEdit: (id: t.Id) => Option<(text: string) => void>
   onCancel: () => void
   onToggleAll: (value: boolean) => void
 }
@@ -363,7 +339,7 @@ const TodosComponent = (props: TodosComponentProps) => {
           return (
             <TodoComponent
               todo={todo}
-              key={idIso.unwrap(todo.id)}
+              key={t.idIso.unwrap(todo.id)}
               onRemoveTodo={() => onRemoveTodo(todo.id)}
               onToggleTodo={() => onToggleTodo(todo.id)}
               onStartEdit={onStartEdit(todo.id)}
@@ -376,7 +352,7 @@ const TodosComponent = (props: TodosComponentProps) => {
   )
 }
 
-const getFilter = (route: Route): Option<Filter> => {
+const getFilter = (route: t.Route): Option<Filter> => {
   switch (route._tag) {
     case 'All':
       return some(Filter.all)
@@ -405,13 +381,13 @@ const NotFoundComponent = () => {
 }
 
 interface AppComponentProps {
-  model: Model
+  model: t.Model
   onFinish: () => void
   onChange: (text: string) => void
-  onRemoveTodo: (id: Id) => void
-  onToggleTodo: (id: Id) => void
-  onStartEdit: (id: Id) => () => void
-  onEdit: (id: Id) => (text: string) => void
+  onRemoveTodo: (id: t.Id) => void
+  onToggleTodo: (id: t.Id) => void
+  onStartEdit: (id: t.Id) => () => void
+  onEdit: (id: t.Id) => (text: string) => void
   onCancel: () => void
   onToggleAll: (value: boolean) => void
   onClearCompleted: () => void
@@ -437,7 +413,7 @@ const AppComponent = (props: AppComponentProps) => {
       const filteredTodos = todos.filter(getTodosFilter(filter))
       const allCompleted = todos.every(todo => todo.completed)
       const nrActiveTodos = todos.filter(getTodosFilter(Filter.active)).length
-      const onEdit = (id: Id) =>
+      const onEdit = (id: t.Id) =>
         editingLens.get(model).chain(editingId => (editingId === id ? some(props.onEdit(id)) : none))
       return (
         <div>
@@ -467,7 +443,7 @@ const AppComponent = (props: AppComponentProps) => {
     .getOrElse(() => <NotFoundComponent />)
 }
 
-const getTodosFilter = (filter: Filter): Predicate<Todo> => {
+const getTodosFilter = (filter: Filter): Predicate<t.Todo> => {
   switch (filter) {
     case Filter.all:
       return () => true
@@ -478,17 +454,17 @@ const getTodosFilter = (filter: Filter): Predicate<Todo> => {
   }
 }
 
-export function view(model: Model): Html<Msg> {
+export function view(model: t.Model): Html<t.Msg> {
   return new Reader(dispatch => {
-    const onFinish = () => dispatch(AddTodo.value)
-    const onChange = (text: string) => dispatch(EnterTodo.create(text))
-    const onRemoveTodo = (id: Id) => dispatch(RemoveTodo.create(id))
-    const onToggleTodo = (id: Id) => dispatch(ToggleTodo.create(id))
-    const onStartEdit = (id: Id) => () => dispatch(EditTodo.create(id))
-    const onEdit = (id: Id) => (text: string) => dispatch(UpdateTodo.create(id, text))
-    const onCancel = () => dispatch(Cancel.value)
-    const onToggleAll = (value: boolean) => dispatch(ToggleAll.create(value))
-    const onClearCompleted = () => dispatch(ClearCompleted.value)
+    const onFinish = () => dispatch(t.AddTodo.value)
+    const onChange = (text: string) => dispatch(t.EnterTodo.create(text))
+    const onRemoveTodo = (id: t.Id) => dispatch(t.RemoveTodo.create(id))
+    const onToggleTodo = (id: t.Id) => dispatch(t.ToggleTodo.create(id))
+    const onStartEdit = (id: t.Id) => () => dispatch(t.EditTodo.create(id))
+    const onEdit = (id: t.Id) => (text: string) => dispatch(t.UpdateTodo.create(id, text))
+    const onCancel = () => dispatch(t.Cancel.value)
+    const onToggleAll = (value: boolean) => dispatch(t.ToggleAll.create(value))
+    const onClearCompleted = () => dispatch(t.ClearCompleted.value)
     return (
       <AppComponent
         model={model}
