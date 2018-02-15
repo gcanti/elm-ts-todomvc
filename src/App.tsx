@@ -7,12 +7,11 @@ import * as t from './types'
 import { Lens } from 'monocle-ts'
 import { Predicate } from 'fp-ts/lib/function'
 import { lit, end, parse, Route, Match } from 'fp-ts-routing'
-import { Option, none, some } from 'fp-ts/lib/Option'
+import { Option, none, some, fromEither } from 'fp-ts/lib/Option'
 import { tryCatch } from 'fp-ts/lib/Either'
 import { Cmd } from 'elm-ts/lib/Cmd'
 import { perform } from 'elm-ts/lib/Task'
 import { load, save } from './localStorage'
-import { validate } from 'io-ts'
 import * as classnames from 'classnames'
 
 //
@@ -49,12 +48,10 @@ const completedHref = formatRoute(completed)({})
 const NAMESPACE = 'reason-react-todos'
 
 const parseTodos = (s: string): Option<Array<t.Todo>> => {
-  return tryCatch(() => JSON.parse(s))
-    .chain(v => validate(v, t.Todos).mapLeft(() => new Error()))
-    .toOption()
+  return fromEither(tryCatch(() => JSON.parse(s)).chain(v => t.Todos.decode(v).mapLeft(() => new Error())))
 }
 
-const loadTodos: Cmd<t.Msg> = perform(a => t.LoadTodos.create(a.chain(parseTodos).getOrElseValue([])), load(NAMESPACE))
+const loadTodos: Cmd<t.Msg> = perform(a => t.LoadTodos.create(a.chain(parseTodos).getOrElse([])), load(NAMESPACE))
 
 const saveToNamespace = save(NAMESPACE)
 
@@ -440,7 +437,7 @@ const AppComponent = (props: AppComponentProps) => {
         </div>
       )
     })
-    .getOrElse(() => <NotFoundComponent />)
+    .getOrElseL(() => <NotFoundComponent />)
 }
 
 const getTodosFilter = (filter: Filter): Predicate<t.Todo> => {
