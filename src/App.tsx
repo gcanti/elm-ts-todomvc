@@ -13,6 +13,7 @@ import { Cmd } from 'elm-ts/lib/Cmd'
 import { perform } from 'elm-ts/lib/Task'
 import { load, save } from './localStorage'
 import * as classnames from 'classnames'
+import { Dispatch } from 'elm-ts/lib/Platform'
 
 //
 // Router
@@ -264,7 +265,7 @@ interface TodoComponentProps {
 }
 
 class TodoComponent extends React.PureComponent<TodoComponentProps> {
-  editField: HTMLInputElement | null
+  editField: HTMLInputElement | null = null
   componentDidUpdate(prevProps: TodoComponentProps) {
     if (this.editField && prevProps.editable.isNone() && this.props.editable.isSome()) {
       const node = findDOMNode(this.editField)
@@ -451,30 +452,32 @@ const getTodosFilter = (filter: Filter): Predicate<t.Todo> => {
   }
 }
 
+function memoize<A, B>(f: (a: A) => B): (a: A) => B {
+  let memo: B
+  let memoized = false
+  return a => {
+    if (!memoized) {
+      memo = f(a)
+      memoized = true
+    }
+    return memo
+  }
+}
+
+const getHandlers = memoize((dispatch: Dispatch<t.Msg>) => ({
+  onFinish: () => dispatch(t.AddTodo.value),
+  onChange: (text: string) => dispatch(t.EnterTodo.create(text)),
+  onRemoveTodo: (id: t.Id) => dispatch(t.RemoveTodo.create(id)),
+  onToggleTodo: (id: t.Id) => dispatch(t.ToggleTodo.create(id)),
+  onStartEdit: (id: t.Id) => () => dispatch(t.EditTodo.create(id)),
+  onEdit: (id: t.Id) => (text: string) => dispatch(t.UpdateTodo.create(id, text)),
+  onCancel: () => dispatch(t.Cancel.value),
+  onToggleAll: (value: boolean) => dispatch(t.ToggleAll.create(value)),
+  onClearCompleted: () => dispatch(t.ClearCompleted.value)
+}))
+
 export function view(model: t.Model): Html<t.Msg> {
   return new Reader(dispatch => {
-    const onFinish = () => dispatch(t.AddTodo.value)
-    const onChange = (text: string) => dispatch(t.EnterTodo.create(text))
-    const onRemoveTodo = (id: t.Id) => dispatch(t.RemoveTodo.create(id))
-    const onToggleTodo = (id: t.Id) => dispatch(t.ToggleTodo.create(id))
-    const onStartEdit = (id: t.Id) => () => dispatch(t.EditTodo.create(id))
-    const onEdit = (id: t.Id) => (text: string) => dispatch(t.UpdateTodo.create(id, text))
-    const onCancel = () => dispatch(t.Cancel.value)
-    const onToggleAll = (value: boolean) => dispatch(t.ToggleAll.create(value))
-    const onClearCompleted = () => dispatch(t.ClearCompleted.value)
-    return (
-      <AppComponent
-        model={model}
-        onFinish={onFinish}
-        onChange={onChange}
-        onRemoveTodo={onRemoveTodo}
-        onToggleTodo={onToggleTodo}
-        onStartEdit={onStartEdit}
-        onEdit={onEdit}
-        onCancel={onCancel}
-        onToggleAll={onToggleAll}
-        onClearCompleted={onClearCompleted}
-      />
-    )
+    return <AppComponent model={model} {...getHandlers(dispatch)} />
   })
 }
