@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { findDOMNode } from 'react-dom'
 import { cmd } from 'elm-ts/lib'
-import { Html, Reader } from 'elm-ts/lib/React'
+import { Html } from 'elm-ts/lib/React'
 import { Location } from 'elm-ts/lib/Navigation'
 import * as t from './types'
 import { Lens } from 'monocle-ts'
@@ -52,12 +52,12 @@ const parseTodos = (s: string): Option<Array<t.Todo>> => {
   return fromEither(tryCatch(() => JSON.parse(s)).chain(v => t.Todos.decode(v).mapLeft(() => new Error())))
 }
 
-const loadTodos: Cmd<t.Msg> = perform(a => t.LoadTodos.create(a.chain(parseTodos).getOrElse([])), load(NAMESPACE))
+const loadTodos: Cmd<t.Msg> = perform(load(NAMESPACE), a => t.LoadTodos.create(a.chain(parseTodos).getOrElse([])))
 
 const saveToNamespace = save(NAMESPACE)
 
 const saveTodos = (todos: Array<t.Todo>): Cmd<t.Msg> => {
-  return perform(a => t.NoOp.value, saveToNamespace(JSON.stringify(todos)))
+  return perform(saveToNamespace(JSON.stringify(todos)), a => t.NoOp.value)
 }
 
 //
@@ -477,7 +477,7 @@ const getHandlers = memoize((dispatch: Dispatch<t.Msg>) => ({
 }))
 
 export function view(model: t.Model): Html<t.Msg> {
-  return new Reader(dispatch => {
+  return dispatch => {
     return <AppComponent model={model} {...getHandlers(dispatch)} />
-  })
+  }
 }
