@@ -13,8 +13,8 @@ import { fromIO, Task } from 'fp-ts/lib/Task'
 import { Lens } from 'monocle-ts'
 import * as React from 'react'
 import { findDOMNode } from 'react-dom'
-import { getItem, setItem } from './localStorage'
 import * as t from './types'
+import { IO } from 'fp-ts/lib/IO'
 
 //
 // Router
@@ -53,14 +53,19 @@ const parseTodos = (s: string): Option<Array<t.Todo>> => {
   return fromEither(tryCatch(() => JSON.parse(s)).chain(v => t.Todos.decode(v).mapLeft(() => new Error())))
 }
 
-const loadTodos: Cmd<t.Msg> = perform(fromIO(getItem(NAMESPACE)), a =>
-  t.LoadTodos.create(a.chain(parseTodos).getOrElse([]))
-)
+export interface MonadLocalStorage {
+  setItem: (key: string, value: string) => IO<void>
+  getItem: (key: string) => IO<Option<string>>
+}
 
-const saveToNamespace = (value: string): Task<void> => fromIO(setItem(NAMESPACE, value))
+const loadTodos = (M: MonadLocalStorage): Cmd<t.Msg> =>
+  perform(fromIO(M.getItem(NAMESPACE)), a => t.LoadTodos.create(a.chain(parseTodos).getOrElse([])))
 
-const saveTodos = (todos: Array<t.Todo>): Cmd<t.Msg> => {
-  return perform(saveToNamespace(JSON.stringify(todos)), a => t.NoOp.value)
+const saveToNamespace = (M: MonadLocalStorage) => (value: string): Task<void> => fromIO(M.setItem(NAMESPACE, value))
+
+const saveTodos = (M: MonadLocalStorage): ((todos: Array<t.Todo>) => Cmd<t.Msg>) => {
+  const saveToNamespaceM = saveToNamespace(M)
+  return todos => perform(saveToNamespaceM(JSON.stringify(todos)), a => t.NoOp.value)
 }
 
 //
@@ -72,17 +77,20 @@ export const locationToMessage = (location: Location): t.Msg => {
   return t.Navigate.create(route)
 }
 
-export const init = (location: Location): [t.Model, cmd.Cmd<t.Msg>] => {
-  const route = parseRoute(location.pathname)
-  return [
-    {
-      route,
-      todos: [],
-      adding: '',
-      editing: none
-    },
-    loadTodos
-  ]
+export const init = (M: MonadLocalStorage): ((location: Location) => [t.Model, cmd.Cmd<t.Msg>]) => {
+  const loadTodosM = loadTodos(M)
+  return location => {
+    const route = parseRoute(location.pathname)
+    return [
+      {
+        route,
+        todos: [],
+        adding: '',
+        editing: none
+      },
+      loadTodosM
+    ]
+  }
 }
 
 //
@@ -128,38 +136,44 @@ const updateTodo = (id: t.Id, text: string, model: t.Model): t.Model =>
 
 const withoutEffect = (model: t.Model): [t.Model, cmd.Cmd<t.Msg>] => [model, cmd.none]
 
-const withSaveEffect = (model: t.Model): [t.Model, cmd.Cmd<t.Msg>] => [model, saveTodos(todosLens.get(model))]
+const withSaveEffect = (M: MonadLocalStorage): ((model: t.Model) => [t.Model, cmd.Cmd<t.Msg>]) => {
+  const saveTodosM = saveTodos(M)
+  return model => [model, saveTodosM(todosLens.get(model))]
+}
 
 //
 // Update
 //
 
-export const update = (msg: t.Msg, model: t.Model): [t.Model, cmd.Cmd<t.Msg>] => {
-  switch (msg._tag) {
-    case 'NoOp':
-      return withoutEffect(model)
-    case 'EnterTodo':
-      return withoutEffect(addingLens.set(msg.text)(model))
-    case 'AddTodo':
-      return withSaveEffect(addTodo(model))
-    case 'RemoveTodo':
-      return withSaveEffect(removeTodo(msg.id, model))
-    case 'ToggleTodo':
-      return withSaveEffect(toggleTodo(msg.id, model))
-    case 'Navigate':
-      return withoutEffect(routeLens.set(msg.route)(model))
-    case 'LoadTodos':
-      return withoutEffect(todosLens.set(msg.todos)(model))
-    case 'EditTodo':
-      return withoutEffect(editingLens.set(some(msg.id))(model))
-    case 'UpdateTodo':
-      return withSaveEffect(updateTodo(msg.id, msg.text, model))
-    case 'Cancel':
-      return withoutEffect(editingLens.set(none)(model))
-    case 'ToggleAll':
-      return withSaveEffect(todosLens.modify(todos => todos.map(completedLens.set(msg.value)))(model))
-    case 'ClearCompleted':
-      return withSaveEffect(todosLens.modify(todos => todos.filter(todo => !todo.completed))(model))
+export const update = (M: MonadLocalStorage): ((msg: t.Msg, model: t.Model) => [t.Model, cmd.Cmd<t.Msg>]) => {
+  const withSaveEffectM = withSaveEffect(M)
+  return (msg, model) => {
+    switch (msg._tag) {
+      case 'NoOp':
+        return withoutEffect(model)
+      case 'EnterTodo':
+        return withoutEffect(addingLens.set(msg.text)(model))
+      case 'AddTodo':
+        return withSaveEffectM(addTodo(model))
+      case 'RemoveTodo':
+        return withSaveEffectM(removeTodo(msg.id, model))
+      case 'ToggleTodo':
+        return withSaveEffectM(toggleTodo(msg.id, model))
+      case 'Navigate':
+        return withoutEffect(routeLens.set(msg.route)(model))
+      case 'LoadTodos':
+        return withoutEffect(todosLens.set(msg.todos)(model))
+      case 'EditTodo':
+        return withoutEffect(editingLens.set(some(msg.id))(model))
+      case 'UpdateTodo':
+        return withSaveEffectM(updateTodo(msg.id, msg.text, model))
+      case 'Cancel':
+        return withoutEffect(editingLens.set(none)(model))
+      case 'ToggleAll':
+        return withSaveEffectM(todosLens.modify(todos => todos.map(completedLens.set(msg.value)))(model))
+      case 'ClearCompleted':
+        return withSaveEffectM(todosLens.modify(todos => todos.filter(todo => !todo.completed))(model))
+    }
   }
 }
 
