@@ -1,19 +1,20 @@
+import * as classnames from 'classnames'
+import { cmd } from 'elm-ts/lib'
+import { Cmd } from 'elm-ts/lib/Cmd'
+import { Location } from 'elm-ts/lib/Navigation'
+import { Dispatch } from 'elm-ts/lib/Platform'
+import { Html } from 'elm-ts/lib/React'
+import { perform } from 'elm-ts/lib/Task'
+import { end, lit, Match, parse, Route } from 'fp-ts-routing'
+import { tryCatch } from 'fp-ts/lib/Either'
+import { Predicate } from 'fp-ts/lib/function'
+import { fromEither, none, Option, some } from 'fp-ts/lib/Option'
+import { fromIO, Task } from 'fp-ts/lib/Task'
+import { Lens } from 'monocle-ts'
 import * as React from 'react'
 import { findDOMNode } from 'react-dom'
-import { cmd } from 'elm-ts/lib'
-import { Html } from 'elm-ts/lib/React'
-import { Location } from 'elm-ts/lib/Navigation'
+import { getItem, setItem } from './localStorage'
 import * as t from './types'
-import { Lens } from 'monocle-ts'
-import { Predicate } from 'fp-ts/lib/function'
-import { lit, end, parse, Route, Match } from 'fp-ts-routing'
-import { Option, none, some, fromEither } from 'fp-ts/lib/Option'
-import { tryCatch } from 'fp-ts/lib/Either'
-import { Cmd } from 'elm-ts/lib/Cmd'
-import { perform } from 'elm-ts/lib/Task'
-import { load, save } from './localStorage'
-import * as classnames from 'classnames'
-import { Dispatch } from 'elm-ts/lib/Platform'
 
 //
 // Router
@@ -52,9 +53,11 @@ const parseTodos = (s: string): Option<Array<t.Todo>> => {
   return fromEither(tryCatch(() => JSON.parse(s)).chain(v => t.Todos.decode(v).mapLeft(() => new Error())))
 }
 
-const loadTodos: Cmd<t.Msg> = perform(load(NAMESPACE), a => t.LoadTodos.create(a.chain(parseTodos).getOrElse([])))
+const loadTodos: Cmd<t.Msg> = perform(fromIO(getItem(NAMESPACE)), a =>
+  t.LoadTodos.create(a.chain(parseTodos).getOrElse([]))
+)
 
-const saveToNamespace = save(NAMESPACE)
+const saveToNamespace = (value: string): Task<void> => fromIO(setItem(NAMESPACE, value))
 
 const saveTodos = (todos: Array<t.Todo>): Cmd<t.Msg> => {
   return perform(saveToNamespace(JSON.stringify(todos)), a => t.NoOp.value)

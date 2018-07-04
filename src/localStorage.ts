@@ -1,6 +1,6 @@
-import { Task, task } from 'fp-ts/lib/Task'
+import { IO } from 'fp-ts/lib/IO'
 import { Option, fromNullable } from 'fp-ts/lib/Option'
 
-export const save = (key: string) => (data: string): Task<void> => task.of(localStorage.setItem(key, data))
+export const setItem = (key: string, value: string): IO<void> => new IO(() => localStorage.setItem(key, value))
 
-export const load = (key: string): Task<Option<string>> => task.of(fromNullable(localStorage.getItem(key)))
+export const getItem = (key: string): IO<Option<string>> => new IO(() => fromNullable(localStorage.getItem(key)))
